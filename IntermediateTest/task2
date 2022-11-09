@@ -1,0 +1,19 @@
+
+create database IntermediateTest;
+use IntermediateTest;
+
+//Carico il mio file in un unica tabella con il formato definito nella classe Employee e poi lo partiziono nelle tabelle
+
+create table if not exists Employee (id int,name string,surname string,int age,livingPlace<name:string,province:string>,programmingLanguages<struct<name:string,description:string,levelOfConfidence:int>>) row format row format serde'org.apache.hive.hcatalog.data.JsonSerDe' stored as textfile;
+load data inpath ‘/user/paolo/survey.txt’ overwrite into table Employee
+
+
+//Creo le tabelle come risultato di una query sulla tabella iniziale, per le ultime due utilizzo una vista che mi permette di esplodere la struct dell'programmingLanguages
+
+create table if not exists City row format row format serde'org.apache.hive.hcatalog.data.JsonSerDe' stored as textfile as SELECT livingPlace.city,livingPlace.province FROM Employee;
+create table if not exists Employee row format row format serde'org.apache.hive.hcatalog.data.JsonSerDe' stored as textfile as SELECT name,surname,age,livingPlace.province FROM Employee;
+create table if not exists Language row format row format serde'org.apache.hive.hcatalog.data.JsonSerDe' stored as textfile as SELECT parameters.name,parameter.description FROM Employee lateral view inline(programmingLanguages) parameters;
+create table if not exists Skill row format row format serde'org.apache.hive.hcatalog.data.JsonSerDe' stored as textfile as SELECT parameters.levelOfConfidence,parameters.name, FROM Employee lateral view inline(programmingLanguages) parameters;
+
+
+1) SELECT l.name FROM Language as l,Skill as s WHERE s.name=l.name and s.levelOfConfidence ( SELECT MAX(AVG(s.levelOfConfidence)) FROM Skill as s GROUP BY s.name ) 
